@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 27Feb2017  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 05May2017
 
 # Summary
 
@@ -24,16 +24,14 @@ Preprocessing steps done in the following order:
 # Start time
 Sys.time()
 
-# Folders
+# Base folder
+library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
-setwd(base_folder)
-scripts_folder <- "scripts"
-source_data_folder <- "source_data"
-interim_data_folder <- "interim_data"
-results_folder <- "results"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
 
 # Accessory function
-source(paste(scripts_folder, "f03_qqunif_plot.R", sep="/")) # for nice qq-plots
+source(paste(base_folder, "scripts", "f03_qqunif_plot.R", sep="/")) # for nice qq-plots
 
 ```
 
@@ -41,7 +39,8 @@ source(paste(scripts_folder, "f03_qqunif_plot.R", sep="/")) # for nice qq-plots
 
 ```{r load_data}
 
-load(paste(interim_data_folder, "r08_filter_by_variant_effect_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r08_filter_by_variant_effect_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 ```
 
@@ -622,7 +621,7 @@ sum(rownames(genotypes.mx) != rownames(variants.df))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r10a_invert_impute_weight_aggregate_wecare_only.RData", sep="/"))
+save.image(paste(base_folder, "results", "r10a_invert_impute_weight_aggregate_wecare_only.RData", sep="/"))
 
 ```
 

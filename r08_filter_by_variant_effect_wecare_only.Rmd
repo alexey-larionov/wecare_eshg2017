@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 2016  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -53,12 +53,10 @@ Output data: 18,551 vars x 478 cases (245 UBC and 233 CBC)
 Sys.time()
 
 # Folders
+library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
-setwd(base_folder)
-scripts_folder <- "scripts"
-source_data_folder <- "source_data"
-interim_data_folder <- "interim_data"
-results_folder <- "results"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
 
 # Load libraries
 library(dplyr)
@@ -72,7 +70,8 @@ library(VennDiagram)
 
 ```{r load_data}
 
-load(paste(interim_data_folder, "r07_pick_egenvectors_exclude_outliers_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r07_pick_egenvectors_exclude_outliers_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 ```
 
@@ -770,7 +769,7 @@ sum(rownames(genotypes.mx) != rownames(variants.df))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r08_filter_by_variant_effect_wecare_only.RData", sep="/"))
+save.image(paste(base_folder, "results", "r08_filter_by_variant_effect_wecare_only.RData", sep="/"))
 
 ```
 

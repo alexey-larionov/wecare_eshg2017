@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 01Mar2016  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -43,11 +43,6 @@ library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 opts_knit$set(root.dir = base_folder)
 
-scripts_folder <- paste(base_folder, "scripts", sep="/")
-source_data_folder <- paste(base_folder, "source_data", sep="/")
-interim_data_folder <- paste(base_folder, "interim_data", sep="/")
-results_folder <- paste(base_folder, "results", sep="/")
-
 # Required libraries
 library(dplyr) # for piping, filter, select etc
 
@@ -57,7 +52,8 @@ library(dplyr) # for piping, filter, select etc
 
 ```{r load_data}
 
-load(paste(interim_data_folder, "r02_filter_genotypes_and_variants_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r02_filter_genotypes_and_variants_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 ```
 
@@ -1044,7 +1040,7 @@ rm(BRCA1_carriers, BRCA2_carriers, PALB2_carriers, BRCA1_BRCA2_PALB2_cases.df)
 
 ```{r write_wecare_phenotypes_table}
 
-write.table(phenotypes.df, file=paste(interim_data_folder, "wecare_phenotypes_interim.txt", sep="/"), quote=FALSE, sep="\t")
+write.table(phenotypes.df, file=paste(base_folder, "results", "r03_wecare_phenotypes_interim.txt", sep="/"), quote=FALSE, sep="\t")
 
 ```
 
@@ -1113,7 +1109,7 @@ sum(rownames(gt.mx) != rownames(exac.df))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r03_consolidate_phenotype_data_wecare_only.RData", sep="/"))
+save.image(paste(base_folder, "results", "r03_consolidate_phenotype_data_wecare_only.RData", sep="/"))
 
 ```
 

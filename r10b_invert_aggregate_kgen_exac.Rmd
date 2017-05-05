@@ -1,0 +1,572 @@
+---
+title: "invert_aggregate_kgen_exac"
+output: html_document
+---
+
+started: Alexey Larionov, Feb2017  
+last updated: Alexey Larionov, 05May2017
+
+# Summary
+
+Invert (when needed) and aggregate kgen and exac data
+Calculate the aggregated crude allelic counts trends per gene  
+
+# start_section
+
+```{r start_section}
+
+# Start time
+Sys.time()
+
+# Folders
+library(knitr)
+base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
+
+# Accessory function
+source(paste(base_folder, "scripts", "f03_qqunif_plot.R", sep="/")) # simple qq-plots
+
+```
+
+# load_data
+
+```{r load_data}
+
+load(paste(base_folder, "results", "r10a_invert_impute_weight_aggregate_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+
+```
+
+# check_data
+
+```{r check_data}
+
+dim(genotypes.mx)
+class(genotypes.mx)
+genotypes.mx[1:5,1:5]
+
+dim(genotypes_inv_imp_wt.mx)
+class(genotypes_inv_imp_wt.mx)
+genotypes_inv_imp_wt.mx[1:5,1:5]
+
+dim(genes_aggr_data.mx)
+class(genes_aggr_data.mx)
+genes_aggr_data.mx[1:5,1:5]
+
+dim(genes_aggr_info.df)
+str(genes_aggr_info.df)
+genes_aggr_info.df[1:5,1:5]
+
+dim(kgen.df)
+colnames(kgen.df)
+kgen.df[1:5,1:5]
+
+dim(exac.df)
+colnames(exac.df)
+exac.df[1:5,1:5]
+
+dim(variants.df)
+str(variants.df)
+variants.df[1:5,1:5]
+
+dim(phenotypes.df)
+str(phenotypes.df)
+phenotypes.df[1:5,1:5]
+
+# Check consistency of rownames and colnames
+sum(colnames(genotypes.mx) != rownames(phenotypes.df))
+sum(colnames(genes_aggr_data.mx) != rownames(phenotypes.df))
+
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_data.mx))
+
+sum(rownames(genotypes.mx) != rownames(genotypes_inv_imp_wt.mx))
+sum(rownames(genotypes.mx) != rownames(kgen.df))
+sum(rownames(genotypes.mx) != rownames(exac.df))
+sum(rownames(genotypes.mx) != rownames(variants.df))
+
+```
+
+# aggregate_kgen
+
+Only total kgen AFs could be aggregated (EUR kgen does not provide ac and an data)  
+Assuming that missed data in kgen mean no variant in kgen (this is not always true)  
+
+There is an unexpected large excess of risk over protective genes.  
+This excess may reflect the artificial tendency to lower aggregated AFs in kgen??  
+
+```{r aggregate_kgen}
+
+# Get list of genes 
+# (check that there is no NAs; get rid of NAs if they are present!)
+genes <- unique(as.character(variants.df$SYMBOL))
+length(genes)
+sum(is.na(genes))
+
+# Prepare blank matrix for output
+header <- c("gene", "num_var", "inverted", "multiallelic", 
+            "ac_kgen", "an_kgen", "af_kgen", 
+            "ac_ubc", "an_ubc", "af_ubc", 
+            "ac_cbc", "an_cbc", "af_cbc",
+            "pearson_r", "trend_call", "crude_trend_test_p")
+
+genes_aggr_kgen.mx <- matrix(nrow=0, ncol=length(header))
+header -> colnames(genes_aggr_kgen.mx)
+
+# For each gene
+for(gene in genes){
+  
+  #gene="ATM"
+  #gene="NPHP4" # inverted
+  #gene="KLHL17" # no kgen data
+
+  # Get list of variants
+  vars <- variants.df$SYMBOL == gene
+  num_var <- sum(vars)
+  
+  # Get kgen data
+  kgen.mx <- kgen.df[vars, , drop=FALSE]
+  # drop=FALSE prevents converting data frame to vector for single-variant genes  
+  # https://stat.ethz.ch/R-manual/R-devel/library/base/html/Extract.data.frame.html  
+
+  # Check if any variant is inverted
+  inverted <- FALSE
+  if(any(variants.df[vars, "inverted"])) inverted <- TRUE
+  
+  # Check if any variant is multiallelic
+  multiallelic <- FALSE
+  if(any(variants.df[vars, "Multiallelic"])) multiallelic <- TRUE
+  
+  # If there are variants inverted in wecare
+  if(inverted){
+    
+    # Invert them in in kgen too
+    for(var in variants.df[vars,"SplitVarID"]){
+      
+      if(variants.df[var, "inverted"]){
+        kgen.mx[var, "kgen.AC"] <- kgen.mx[var, "kgen.AN"] - kgen.mx[var, "kgen.AC"]
+      }
+    }
+    # Clean-up
+    rm(var)
+  }
+
+  # Aggregate kgen (if there are any kgen data for the gene)
+  if(any(!is.na(kgen.mx$kgen.AN))){
+    ac_kgen <- sum(kgen.mx$kgen.AC, na.rm = TRUE)
+    an_kgen <- sum(kgen.mx$kgen.AN, na.rm = TRUE)
+    af_kgen <- ac_kgen / an_kgen
+  }else{
+    ac_kgen <- NA
+    an_kgen <- NA
+    af_kgen <- NA
+  }
+  
+  # Add data about aggregated ubc
+  ac_ubc <- genes_aggr_info.df[gene, "aggr_ac_ubc"]
+  an_ubc <- genes_aggr_info.df[gene, "aggr_an_ubc"]
+  af_ubc <- genes_aggr_info.df[gene, "aggr_af_ubc"]
+  
+  # Add data about aggregated cbc
+  ac_cbc <- genes_aggr_info.df[gene, "aggr_ac_cbc"]
+  an_cbc <- genes_aggr_info.df[gene, "aggr_an_cbc"]
+  af_cbc <- genes_aggr_info.df[gene, "aggr_af_cbc"]
+  
+  # Prepare counts for calculating prop.trend.test
+  ac_trend <- c(ac_kgen, ac_ubc, ac_cbc)
+  an_trend <- c(an_kgen, an_ubc, an_cbc)
+  
+  # Omit trend estimation if any data missing  
+  if(any(is.na(c(ac_trend, an_trend)))){
+    
+    crude_trend_test_p <- NA
+    pearson_r <- NA
+    trend_call <- NA
+
+  # Estimate trend if there is no missed data
+  }else{
+    
+    # Calculate p for trend - as an accessory metric, not used for "trend call"
+    # (no errors and warnings - checked manually before finalising the script)
+    crude_trend_test_p <- prop.trend.test(ac_trend, an_trend)$p.value
+
+    # Calculate pearson_r to detect the trend direction (kgen-ubc-cbc)
+    pearson_r <- cor(ac_trend/an_trend, c(1,2,3))
+    
+    # Call trend basing on pearson_r
+    if(pearson_r > 0){
+      trend_call <- "risk"
+    }else if(pearson_r < 0){
+      trend_call <- "protective"
+    }else{
+      trend_call <- "uncertain"
+    }
+    
+  }
+
+  # Compile result
+  result <- c(gene, num_var, inverted, multiallelic, 
+              ac_kgen, an_kgen, af_kgen, ac_ubc, an_ubc, af_ubc, ac_cbc, an_cbc, af_cbc,
+              pearson_r, trend_call, crude_trend_test_p)
+  
+  # Add result to the otput table
+  genes_aggr_kgen.mx <- rbind(genes_aggr_kgen.mx, result)
+  
+  # Clean-up
+  rm(vars, num_var, inverted, multiallelic, 
+     ac_kgen, an_kgen, af_kgen, ac_ubc, an_ubc, af_ubc, ac_cbc, an_cbc, af_cbc,
+     pearson_r, trend_call, crude_trend_test_p, 
+     kgen.mx, ac_trend, an_trend, result)
+  
+} # next gene
+
+# Check results
+dim(genes_aggr_kgen.mx)
+
+# Assign rownames
+genes -> rownames(genes_aggr_kgen.mx)
+
+# Convert to df with appropriate datatypes
+genes_aggr_kgen.df <- as.data.frame(genes_aggr_kgen.mx, stringsAsFactors = FALSE)
+genes_aggr_kgen.df$num_var <- as.numeric(genes_aggr_kgen.df$num_var)
+
+genes_aggr_kgen.df$inverted <- as.logical(genes_aggr_kgen.df$inverted)
+genes_aggr_kgen.df$multiallelic <- as.logical(genes_aggr_kgen.df$multiallelic)
+
+genes_aggr_kgen.df$ac_kgen <- as.numeric(genes_aggr_kgen.df$ac_kgen)
+genes_aggr_kgen.df$an_kgen <- as.numeric(genes_aggr_kgen.df$an_kgen)
+genes_aggr_kgen.df$af_kgen <- as.numeric(genes_aggr_kgen.df$af_kgen)
+
+genes_aggr_kgen.df$ac_ubc <- as.numeric(genes_aggr_kgen.df$ac_ubc)
+genes_aggr_kgen.df$an_ubc <- as.numeric(genes_aggr_kgen.df$an_ubc)
+genes_aggr_kgen.df$af_ubc <- as.numeric(genes_aggr_kgen.df$af_ubc)
+
+genes_aggr_kgen.df$ac_cbc <- as.numeric(genes_aggr_kgen.df$ac_cbc)
+genes_aggr_kgen.df$an_cbc <- as.numeric(genes_aggr_kgen.df$an_cbc)
+genes_aggr_kgen.df$af_cbc <- as.numeric(genes_aggr_kgen.df$af_cbc)
+
+genes_aggr_kgen.df$pearson_r <- as.numeric(genes_aggr_kgen.df$pearson_r)
+genes_aggr_kgen.df$trend_call <- as.factor(genes_aggr_kgen.df$trend_call)
+genes_aggr_kgen.df$crude_trend_test_p <- as.numeric(genes_aggr_kgen.df$crude_trend_test_p)
+
+# Explore the result
+str(genes_aggr_kgen.df)
+summary(genes_aggr_kgen.df$inverted)
+summary(genes_aggr_kgen.df$multiallelic)
+
+summary(genes_aggr_kgen.df$trend_call) 
+# Surprising disbalance between protctive and risk
+# Most likely reflects tendency to lower AFs in kgen??  
+
+# A glance at top 100 "risk" genes
+detected_in_kgen <- !is.na(genes_aggr_kgen.df$trend_call)
+rare_in_kgen <- genes_aggr_kgen.df$af_kgen <= 0.05
+risk <- genes_aggr_kgen.df$trend_call == "risk"
+significant <- genes_aggr_kgen.df$crude_trend_test_p <= 0.05
+selected <- detected_in_kgen & rare_in_kgen & risk & significant
+sum(selected)
+x <- genes_aggr_kgen.df[selected, c("af_kgen", "af_ubc", "af_cbc", "crude_trend_test_p")]
+x <- x[order(x$crude_trend_test_p),]
+top_100_kgen <- x[1:100,]
+top_100_kgen
+
+# A glance at 3 candidate genes
+genes_aggr_kgen.df[c("ATM", "CHEK2", "FANCB"), c("af_kgen", "af_ubc", "af_cbc", "trend_call", "crude_trend_test_p")]
+
+# Clean-up
+rm(gene, genes, header, genes_aggr_kgen.mx, detected_in_kgen, rare_in_kgen, risk, significant, succeeded, selected, x)
+
+```
+
+# aggregate_exac
+
+```{r aggregate_exac}
+
+# Get list of genes 
+# (check that there is no NAs; get rid of NAs if they are present!)
+genes <- unique(as.character(variants.df$SYMBOL))
+length(genes)
+sum(is.na(genes))
+
+# Prepare blank matrix for output
+header <- c("gene", "num_var", "inverted", "multiallelic", 
+            "ac_exac_NFE", "an_exac_NFE", "af_exac_NFE", 
+            "ac_ubc", "an_ubc", "af_ubc", 
+            "ac_cbc", "an_cbc", "af_cbc",
+            "pearson_r", "trend_call", "crude_trend_test_p")
+
+genes_aggr_exac.mx <- matrix(nrow=0, ncol=length(header))
+header -> colnames(genes_aggr_exac.mx)
+
+# For each gene
+for(gene in genes){
+  
+  #gene="ATM"
+  #gene="NPHP4" # inverted
+
+  # Get list of variants
+  vars <- variants.df$SYMBOL == gene
+  num_var <- sum(vars)
+  
+  # Get exac data
+  exac.mx <- exac.df[vars, c("exac_non_TCGA.AC_NFE", "exac_non_TCGA.AN_NFE") , drop=FALSE]
+  # drop=FALSE prevents converting data frame to vector for single-variant genes  
+  # https://stat.ethz.ch/R-manual/R-devel/library/base/html/Extract.data.frame.html  
+
+  # Check if any variant is inverted
+  inverted <- FALSE
+  if(any(variants.df[vars, "inverted"])) inverted <- TRUE
+  
+  # Check if any variant is multiallelic
+  multiallelic <- FALSE
+  if(any(variants.df[vars, "Multiallelic"])) multiallelic <- TRUE
+  
+  # If there are variants inverted in wecare
+  if(inverted){
+    
+    # Invert them in in exac too
+    for(var in variants.df[vars,"SplitVarID"]){
+      
+      if(variants.df[var, "inverted"]){
+        exac.mx[var, "exac_non_TCGA.AC_NFE"] <- exac.mx[var, "exac_non_TCGA.AN_NFE"] - exac.mx[var, "exac_non_TCGA.AC_NFE"]
+      }
+    }
+    # Clean-up
+    rm(var)
+  }
+  
+  # Aggregate exac (if there are any exac data for the gene)
+  if(any(!is.na(exac.mx$exac_non_TCGA.AN_NFE))){
+    ac_exac <- sum(exac.mx$exac_non_TCGA.AC_NFE, na.rm = TRUE)
+    an_exac <- sum(exac.mx$exac_non_TCGA.AN_NFE, na.rm = TRUE)
+    af_exac <- ac_exac / an_exac
+  }else{
+    ac_exac <- NA
+    an_exac <- NA
+    af_exac <- NA
+  }
+
+  # Add data about aggregated ubc
+  ac_ubc <- genes_aggr_info.df[gene, "aggr_ac_ubc"]
+  an_ubc <- genes_aggr_info.df[gene, "aggr_an_ubc"]
+  af_ubc <- genes_aggr_info.df[gene, "aggr_af_ubc"]
+  
+  # Add data about aggregated cbc
+  ac_cbc <- genes_aggr_info.df[gene, "aggr_ac_cbc"]
+  an_cbc <- genes_aggr_info.df[gene, "aggr_an_cbc"]
+  af_cbc <- genes_aggr_info.df[gene, "aggr_af_cbc"]
+
+  # Prepare counts for calculating prop.trend.test
+  ac_trend <- c(ac_exac, ac_ubc, ac_cbc)
+  an_trend <- c(an_exac, an_ubc, an_cbc)
+  
+  # Omit trend estimation if any data missing  
+  if(any(is.na(c(ac_trend, an_trend)))){
+    
+    crude_trend_test_p <- NA
+    pearson_r <- NA
+    trend_call <- NA
+
+  # Estimate trend if there is no missed data
+  }else{
+    
+    # Calculate p for trend - as an accessory metric, not used for "trend call"
+    # (no errors and warnings - checked manually before finalising the script)
+    crude_trend_test_p <- prop.trend.test(ac_trend, an_trend)$p.value
+
+    # Calculate pearson_r to detect the trend direction (exac-ubc-cbc)
+    pearson_r <- cor(ac_trend/an_trend, c(1,2,3))
+    
+    # Call trend basing on pearson_r
+    if(pearson_r > 0){
+      trend_call <- "risk"
+    }else if(pearson_r < 0){
+      trend_call <- "protective"
+    }else{
+      trend_call <- "uncertain"
+    }
+    
+  }
+
+  # Compile result
+  result <- c(gene, num_var, inverted, multiallelic, 
+              ac_exac, an_exac, af_exac, 
+              ac_ubc, an_ubc, af_ubc, 
+              ac_cbc, an_cbc, af_cbc,
+              pearson_r, trend_call, crude_trend_test_p)
+  
+  # Add result to the otput table
+  genes_aggr_exac.mx <- rbind(genes_aggr_exac.mx, result)
+  
+  # Clean-up
+  rm(vars, num_var, inverted, multiallelic, 
+     ac_exac, an_exac, af_exac, 
+     ac_ubc, an_ubc, af_ubc, 
+     ac_cbc, an_cbc, af_cbc,
+     pearson_r, trend_call, crude_trend_test_p, 
+     exac.mx, ac_trend, an_trend, result)
+  
+} # next gene
+
+# Check results
+dim(genes_aggr_exac.mx)
+
+# Assign rownames
+genes -> rownames(genes_aggr_exac.mx)
+
+# Convert to df with appropriate datatypes
+genes_aggr_exac.df <- as.data.frame(genes_aggr_exac.mx, stringsAsFactors = FALSE)
+genes_aggr_exac.df$num_var <- as.numeric(genes_aggr_exac.df$num_var)
+
+genes_aggr_exac.df$inverted <- as.logical(genes_aggr_exac.df$inverted)
+genes_aggr_exac.df$multiallelic <- as.logical(genes_aggr_exac.df$multiallelic)
+
+genes_aggr_exac.df$ac_exac_NFE <- as.numeric(genes_aggr_exac.df$ac_exac_NFE)
+genes_aggr_exac.df$an_exac_NFE <- as.numeric(genes_aggr_exac.df$an_exac_NFE)
+genes_aggr_exac.df$af_exac_NFE <- as.numeric(genes_aggr_exac.df$af_exac_NFE)
+
+genes_aggr_exac.df$ac_ubc <- as.numeric(genes_aggr_exac.df$ac_ubc)
+genes_aggr_exac.df$an_ubc <- as.numeric(genes_aggr_exac.df$an_ubc)
+genes_aggr_exac.df$af_ubc <- as.numeric(genes_aggr_exac.df$af_ubc)
+
+genes_aggr_exac.df$ac_cbc <- as.numeric(genes_aggr_exac.df$ac_cbc)
+genes_aggr_exac.df$an_cbc <- as.numeric(genes_aggr_exac.df$an_cbc)
+genes_aggr_exac.df$af_cbc <- as.numeric(genes_aggr_exac.df$af_cbc)
+
+genes_aggr_exac.df$pearson_r <- as.numeric(genes_aggr_exac.df$pearson_r)
+genes_aggr_exac.df$trend_call <- as.factor(genes_aggr_exac.df$trend_call)
+genes_aggr_exac.df$crude_trend_test_p <- as.numeric(genes_aggr_exac.df$crude_trend_test_p)
+
+# Explore the result
+str(genes_aggr_exac.df)
+summary(genes_aggr_exac.df$inverted)
+summary(genes_aggr_exac.df$multiallelic)
+
+summary(genes_aggr_exac.df$trend_call) 
+# Surprising disbalance between protctive and risk
+# Most likely reflects tendency to lower AFs in exac??  
+
+# A glance at top 100 "risk" genes
+detected_in_exac_NFE <- !is.na(genes_aggr_exac.df$trend_call)
+rare_in_exac_NFE <- genes_aggr_exac.df$af_exac_NFE <= 0.05
+risk <- genes_aggr_exac.df$trend_call == "risk"
+significant <- genes_aggr_exac.df$crude_trend_test_p <= 0.05
+selected <- detected_in_exac_NFE & rare_in_exac_NFE & risk & significant
+sum(selected)
+x <- genes_aggr_exac.df[selected, c("af_exac_NFE", "af_ubc", "af_cbc", "crude_trend_test_p")]
+x <- x[order(x$crude_trend_test_p),]
+top_100_exac <- x[1:100,]
+top_100_exac
+
+# A glance at 3 candidate genes
+genes_aggr_exac.df[c("ATM", "CHEK2", "FANCB"), c("af_exac_NFE", "af_ubc", "af_cbc", "trend_call", "crude_trend_test_p")]
+
+# Look at intersct between exac and kgen
+y <- intersect(rownames(top_100_kgen), rownames(top_100_exac))
+length(y)
+top_100_kgen[y,]
+top_100_exac[y,]
+
+# Clean-up
+rm(gene, genes, header, genes_aggr_exac.mx, detected_in_exac_NFE, rare_in_exac_NFE, 
+   risk, significant, selected, x, y, top_100_exac, top_100_kgen)
+
+```
+
+# qq_plots
+
+Strong artificial methodical differences between exac/kgen and wecare
+
+```{r}
+
+x <- genes_aggr_kgen.df$crude_trend_test_p
+x <- x[!is.na(x)]
+x <- x[x != 0]
+qqunif.plot(x, main="cbc-ubc-kgen trend\nraw allelic frequencies")
+
+x <- genes_aggr_exac.df$crude_trend_test_p
+x <- x[!is.na(x)]
+x <- x[x != 0]
+qqunif.plot(x, main="cbc-ubc-exac trend\nraw allelic frequencies")
+
+rm(x, qqunif.plot)
+
+```
+
+# data_summary
+
+```{r data_summary}
+
+dim(genotypes.mx)
+class(genotypes.mx)
+genotypes.mx[1:5,1:5]
+
+dim(genotypes_inv_imp_wt.mx)
+class(genotypes_inv_imp_wt.mx)
+genotypes_inv_imp_wt.mx[1:5,1:5]
+
+dim(genes_aggr_data.mx)
+class(genes_aggr_data.mx)
+genes_aggr_data.mx[1:5,1:5]
+
+dim(genes_aggr_info.df)
+str(genes_aggr_info.df)
+genes_aggr_info.df[1:5,1:5]
+
+dim(genes_aggr_kgen.df)
+str(genes_aggr_kgen.df)
+genes_aggr_kgen.df[1:5,1:5]
+
+dim(genes_aggr_exac.df)
+str(genes_aggr_exac.df)
+genes_aggr_exac.df[1:5,1:5]
+
+dim(kgen.df)
+colnames(kgen.df)
+kgen.df[1:5,1:5]
+
+dim(exac.df)
+colnames(exac.df)
+exac.df[1:5,1:5]
+
+dim(variants.df)
+str(variants.df)
+variants.df[1:5,1:5]
+
+dim(phenotypes.df)
+str(phenotypes.df)
+phenotypes.df[1:5,1:5]
+
+# Check consistency of rownames and colnames
+sum(colnames(genotypes.mx) != rownames(phenotypes.df))
+sum(colnames(genes_aggr_data.mx) != rownames(phenotypes.df))
+
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_data.mx))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_kgen.df))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_exac.df))
+
+sum(rownames(genotypes.mx) != rownames(genotypes_inv_imp_wt.mx))
+sum(rownames(genotypes.mx) != rownames(kgen.df))
+sum(rownames(genotypes.mx) != rownames(exac.df))
+sum(rownames(genotypes.mx) != rownames(variants.df))
+
+```
+
+# save_data
+
+```{r save_data}
+
+# Save data
+save.image(paste(base_folder, "results", "r10b_invert_aggregate_kgen_exac.RData", sep="/"))
+
+```
+
+# final_section
+
+```{r final_section}
+
+ls()
+sessionInfo()
+Sys.time()
+
+```

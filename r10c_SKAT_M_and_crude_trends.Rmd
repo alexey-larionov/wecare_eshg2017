@@ -1,0 +1,474 @@
+---
+title: "SKAT-M with crude trends"
+output: html_document
+---
+
+started: Alexey Larionov, Feb2017  
+last updated: Alexey Larionov, 05May2017
+
+# Summary
+
+Select 93 genes:  
+
+83 genes:  
+- skat_M burden_svt_p <= 0.05  
+- aggregated exac-NFE AF <= 0.05  
+- crude trend call = "risk"  
+
+10 genes w/o exac data:  
+- skat_M burden_svt_p <= 0.05  
+
+Explore selected genes  
+Save selected genes to text file  
+
+Plot trend for each selected gene  
+
+
+
+# start_section
+
+```{r start_section}
+
+# Start time
+Sys.time()
+
+# Folders
+library(knitr)
+base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
+
+```
+
+# load_data
+
+```{r load_data}
+
+load(paste(base_folder, "results", "r09b_SKAT_M_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+
+load(paste(base_folder, "results", "r10b_invert_aggregate_kgen_exac.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+
+```
+
+# check_data
+
+```{r check_data}
+
+ls()
+
+dim(genotypes.mx)
+class(genotypes.mx)
+genotypes.mx[1:5,1:5]
+
+dim(genotypes_inv_imp_wt.mx)
+class(genotypes_inv_imp_wt.mx)
+genotypes_inv_imp_wt.mx[1:5,1:5]
+
+dim(genes_aggr_data.mx)
+class(genes_aggr_data.mx)
+genes_aggr_data.mx[1:5,1:5]
+
+dim(genes_aggr_skat_M.df)
+str(genes_aggr_skat_M.df)
+genes_aggr_skat_M.df[1:5,1:5]
+
+dim(genes_aggr_info.df)
+str(genes_aggr_info.df)
+genes_aggr_info.df[1:5,1:5]
+
+dim(genes_aggr_kgen.df)
+str(genes_aggr_kgen.df)
+genes_aggr_kgen.df[1:5,1:5]
+
+dim(genes_aggr_exac.df)
+str(genes_aggr_exac.df)
+genes_aggr_exac.df[1:5,1:5]
+
+dim(kgen.df)
+colnames(kgen.df)
+kgen.df[1:5,1:5]
+
+dim(exac.df)
+colnames(exac.df)
+exac.df[1:5,1:5]
+
+dim(variants.df)
+str(variants.df)
+variants.df[1:5,1:5]
+
+dim(phenotypes.df)
+str(phenotypes.df)
+phenotypes.df[1:5,1:5]
+
+# Check consistency of rownames and colnames
+sum(colnames(genotypes.mx) != rownames(phenotypes.df))
+sum(colnames(genes_aggr_data.mx) != rownames(phenotypes.df))
+
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_data.mx))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_kgen.df))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_exac.df))
+
+# sum(rownames(genes_aggr_info.df) != rownames(Genes_aggr_skat_M.df))
+# NB: - see comment before the next chunk
+
+sum(rownames(genotypes.mx) != rownames(genotypes_inv_imp_wt.mx))
+sum(rownames(genotypes.mx) != rownames(kgen.df))
+sum(rownames(genotypes.mx) != rownames(exac.df))
+sum(rownames(genotypes.mx) != rownames(variants.df))
+
+```
+
+# sync_genes_aggr_files
+
+Keep only genes present in SKAT-M  
+
+Genes_aggr_skat_M.df has different number of rows(genes) than other genes_aggr files !!!
+This is OK: 8 genes failed SKAT because of low call rate ( = high NA rate).  
+Our filtering used 80% call rate, while default SKAT used 85% NA rate filter.  
+In future I may change our filter to 85%, for consistency.  
+
+```{r sync_genes_aggr_files}
+
+# Get SKAT-M genes
+skat_m_genes <- rownames(genes_aggr_skat_M.df)
+
+# Sync
+genes_aggr_info.df <- genes_aggr_info.df[skat_m_genes,]
+genes_aggr_data.mx <- genes_aggr_data.mx[skat_m_genes,]
+genes_aggr_kgen.df <- genes_aggr_kgen.df[skat_m_genes,]
+genes_aggr_exac.df <- genes_aggr_exac.df[skat_m_genes,]
+
+# Clean-up
+rm(skat_m_genes)
+
+```
+
+# generate_aggregated_SKAT_M_exac_table
+
+```{r generate_aggregated_SKAT_M_exac_table}
+
+# Check burden and svt p values
+summary(genes_aggr_skat_M.df$svt_is_accurate)
+summary(genes_aggr_skat_M.df$burden_is_accurate)
+
+# Merge burden and svt p values
+svt_p <- genes_aggr_skat_M.df$svt_p
+burden_p <- genes_aggr_skat_M.df$burden_p
+burden_svt_p <- ifelse(is.na(svt_p),burden_p,svt_p)
+summary(burden_svt_p) # no NA
+
+# Make aggregated SKAT_M_exac table
+genes_aggr_skat_M_exac.df <- cbind(
+  genes_aggr_skat_M.df[,c("gene", "num_var", "aggregated_MAC")],
+  burden_svt_p,
+  genes_aggr_exac.df[,c("inverted", "multiallelic", 
+                        "ac_exac_NFE", "an_exac_NFE", "af_exac_NFE", 
+                        "ac_ubc", "an_ubc", "af_ubc", 
+                        "ac_cbc", "an_cbc", "af_cbc", 
+                        "pearson_r", "trend_call", "crude_trend_test_p")])
+
+# Clean-up
+rm(svt_p, burden_p, burden_svt_p)
+
+```
+
+# select_candidate_genes
+
+```{r select_candidate_genes}
+
+# Explore genes_aggr_skat_M.df
+nrow(genes_aggr_skat_M_exac.df)
+summary(genes_aggr_skat_M_exac.df$trend_call)
+
+hist(genes_aggr_skat_M_exac.df$burden_svt_p, 
+     breaks=20, ylim=c(0,2000), labels=TRUE, 
+     xlab="p-values", ylab="genes count", 
+     main="Histogram of SKAT-M burden p-values")
+# Note that expected p-values are not uniform!
+# (see Lee et al Biostatistics 2016)
+
+hist(genes_aggr_skat_M_exac.df$af_exac_NFE, 
+     breaks=20, ylim=c(0,6000), labels=TRUE, 
+     xlab="aggregated exac AF", ylab="genes count", 
+     main="Histogram of aggregated exac AFs")
+
+# Genes with exac data:
+# "Rare" (exac <=0.05), "risk" genes with burden_p <= 0.05
+selected_genes_with_exac.df <- genes_aggr_skat_M_exac.df[!is.na(genes_aggr_skat_M_exac.df$af_exac_NFE),]
+selected_genes_with_exac.df <- selected_genes_with_exac.df[selected_genes_with_exac.df$burden_svt_p <= 0.05,]
+selected_genes_with_exac.df <- selected_genes_with_exac.df[selected_genes_with_exac.df$af_exac_NFE <= 0.05,]
+selected_genes_with_exac.df <- selected_genes_with_exac.df[selected_genes_with_exac.df$trend_call=="risk",]
+selected_genes_with_exac.df <- selected_genes_with_exac.df[order(selected_genes_with_exac.df$burden_svt_p),]
+dim(selected_genes_with_exac.df)
+
+# Genes without exac data: burden_p <= 0.05
+selected_genes_no_exac.df <- genes_aggr_skat_M_exac.df[is.na(genes_aggr_skat_M_exac.df$trend_call),]
+selected_genes_no_exac.df <- selected_genes_no_exac.df[selected_genes_no_exac.df$burden_svt_p <= 0.05,]
+selected_genes_no_exac.df <- selected_genes_no_exac.df[order(selected_genes_no_exac.df$burden_svt_p),]
+dim(selected_genes_no_exac.df)
+
+# Merge selected genes with and w/o exac data
+selected_genes.df <- rbind(selected_genes_with_exac.df, selected_genes_no_exac.df)
+selected_genes.df <- selected_genes.df[order(selected_genes.df$burden_svt_p),]
+dim(selected_genes.df)
+
+# Print selected genes
+selected_genes.df[,c("num_var","burden_svt_p", "af_exac_NFE", "af_ubc", "af_cbc", "crude_trend_test_p")]
+
+```
+
+# explore_and_save_selected_genes
+
+```{r explore_and_save_selected_genes}
+
+# Explore selected genes
+dim(selected_genes.df) # 93 x 18
+summary(selected_genes.df$inverted)
+summary(selected_genes.df$multiallelic)
+
+hist(selected_genes.df$num_var, 
+     labels=TRUE, xlim=c(0,12), xlab="num of variants", ylim=c(0,60), ylab="genes count", 
+     main="Histogram of numbers of variants in selected genes")
+
+hist(selected_genes.df$aggregated_MAC,
+     labels=TRUE, xlab="aggregated MAC", ylim=c(0,100), ylab="genes count", 
+     main="Histogram of aggregated MAC in selected genes")
+
+hist(selected_genes.df$aggregated_MAC[selected_genes.df$aggregated_MAC < 50],
+     labels=TRUE, breaks = 46, 
+     xlim=c(0,50), xlab="aggregated MAC", ylim=c(0,25), ylab="genes count", 
+     main="Histogram of aggregated MAC in selected genes (zoom < 50)")
+
+hist(selected_genes.df$af_exac_NFE, 
+     labels=TRUE, xlim=c(0,0.05), xlab="aggregated exac AF", ylim=c(0,80), ylab="genes count", 
+     main="Histogram of aggregated exac AF in selected genes")
+
+# Write result table to text file
+results_file <- paste(base_folder, "results", "r10c_SKAT_M_and_crude_trends.txt", sep="/")
+write.table(selected_genes.df, file=results_file, quote=FALSE, sep="\t")
+
+# Clean-up
+rm(results_file)
+
+```
+
+# plot_genes_with_exac_data
+
+```{r plot_genes_with_exac_data}
+
+genes <- rownames(selected_genes_with_exac.df) 
+length(genes) # 83
+
+for(gene in genes){
+  
+  #gene <- "FOXM1"
+  
+  x <- as.numeric(selected_genes_with_exac.df[gene, c("af_exac_NFE", "af_ubc", "af_cbc"), drop=TRUE])
+  
+  exac_counts <- (selected_genes_with_exac.df[gene, c("ac_exac_NFE", "an_exac_NFE"), drop=TRUE])
+  exac_counts <- paste(exac_counts, collapse = "/")
+  exac_counts <- paste(round(x[1],5), " (", exac_counts, ")", sep="")
+  
+  ubc_counts <- (selected_genes_with_exac.df[gene, c("ac_ubc", "an_ubc"), drop=TRUE])
+  ubc_counts <- paste(ubc_counts, collapse = "/")
+  ubc_counts <- paste(round(x[2],5), " (", ubc_counts, ")", sep="")
+
+  cbc_counts <- (selected_genes_with_exac.df[gene, c("ac_cbc", "an_cbc"), drop=TRUE])
+  cbc_counts <- paste(cbc_counts, collapse = "/")
+  cbc_counts <- paste(round(x[3],5), " (", cbc_counts, ")", sep="")
+  
+  counts <- c(exac_counts, ubc_counts, cbc_counts)
+  
+  p <- barplot(x, names=c("af_exac_NFE", "af_ubc", "af_cbc"), 
+          ylim=c(0, 1.1*max(x)), ylab="aggregated AF", 
+          main=paste(gene,"\ncrude counts"))
+
+  text(p, x, labels=counts, pos=3, offset=.5)  
+  
+}
+
+rm(gene, genes, x, p, exac_counts, ubc_counts, cbc_counts, counts, selected_genes_with_exac.df)
+
+```
+
+# plot_genes_with_no_exac_data
+
+```{r plot_genes_with_no_exac_data}
+
+genes <- rownames(selected_genes_no_exac.df) 
+length(genes) # 10
+
+for(gene in genes){
+  
+  #gene <- "TMEM139"
+  
+  x <- as.numeric(selected_genes_no_exac.df[gene, c("af_ubc", "af_cbc"), drop=TRUE])
+  
+  ubc_counts <- (selected_genes_no_exac.df[gene, c("ac_ubc", "an_ubc"), drop=TRUE])
+  ubc_counts <- paste(ubc_counts, collapse = "/")
+  ubc_counts <- paste(round(x[1],5), " (", ubc_counts, ")", sep="")
+
+  cbc_counts <- (selected_genes_no_exac.df[gene, c("ac_cbc", "an_cbc"), drop=TRUE])
+  cbc_counts <- paste(cbc_counts, collapse = "/")
+  cbc_counts <- paste(round(x[2],5), " (", cbc_counts, ")", sep="")
+  
+  counts <- c(ubc_counts, cbc_counts)
+  
+  p <- barplot(x, names=c("af_ubc", "af_cbc"), 
+          ylim=c(0, 1.1*max(x)), ylab="aggregated AF", 
+          main=paste(gene,"\ncrude counts"))
+
+  text(p, x, labels=counts, pos=3, offset=.5)  
+  
+}
+
+rm(gene, genes, x, p, ubc_counts, cbc_counts, counts, selected_genes_no_exac.df)
+
+```
+
+# explore_preselected_candidate_genes
+
+Assuming that candidates have exac data  
+
+```{r explore_preselected_candidate_genes}
+
+candidates <- c("FOXM1", "SLC9A3R1", "ACACA", 
+                "ATM", "CHEK2", "FANCB", 
+                "EPHB2", "TIMELESS", "ERCC6", "REV3L", "PDK4", "HDAC6", 
+                "TLR5", "IGKC", "THBS4", "EID3", "AKAP13", "NRG1", "PLK3", "INCENP", "NF1", "CHRNA9")
+
+genes_aggr_skat_M_exac.df[candidates, c("af_exac_NFE", "af_ubc", "af_cbc", "trend_call", "burden_svt_p")]
+
+for(gene in candidates){
+  
+  #gene <- "FOXM1"
+  #gene <- "TMEM139" # no exac data
+  
+  # Skip gene if it does not have exac data
+  if(is.na(genes_aggr_skat_M_exac.df[gene,"af_exac_NFE"])) {
+    print(paste(gene, "has no exac data"))
+    next
+  }
+  
+  x <- as.numeric(genes_aggr_skat_M_exac.df[gene, c("af_exac_NFE", "af_ubc", "af_cbc"), drop=TRUE])
+  
+  exac_counts <- (genes_aggr_skat_M_exac.df[gene, c("ac_exac_NFE", "an_exac_NFE"), drop=TRUE])
+  exac_counts <- paste(exac_counts, collapse = "/")
+  exac_counts <- paste(round(x[1],5), " (", exac_counts, ")", sep="")
+  
+  ubc_counts <- (genes_aggr_skat_M_exac.df[gene, c("ac_ubc", "an_ubc"), drop=TRUE])
+  ubc_counts <- paste(ubc_counts, collapse = "/")
+  ubc_counts <- paste(round(x[2],5), " (", ubc_counts, ")", sep="")
+
+  cbc_counts <- (genes_aggr_skat_M_exac.df[gene, c("ac_cbc", "an_cbc"), drop=TRUE])
+  cbc_counts <- paste(cbc_counts, collapse = "/")
+  cbc_counts <- paste(round(x[3],5), " (", cbc_counts, ")", sep="")
+  
+  counts <- c(exac_counts, ubc_counts, cbc_counts)
+  
+  p <- barplot(x, names=c("af_exac_NFE", "af_ubc", "af_cbc"), 
+          ylim=c(0, 1.1*max(x)), ylab="aggregated AF", 
+          main=paste(gene,"\ncrude counts"))
+
+  text(p, x, labels=counts, pos=3, offset=.5)  
+  
+}
+
+rm(gene, candidates, x, p, exac_counts, ubc_counts, cbc_counts, counts)
+
+```
+
+# data_summary
+
+```{r data_summary}
+
+dim(genotypes.mx)
+class(genotypes.mx)
+genotypes.mx[1:5,1:5]
+
+dim(genotypes_inv_imp_wt.mx)
+class(genotypes_inv_imp_wt.mx)
+genotypes_inv_imp_wt.mx[1:5,1:5]
+
+dim(genes_aggr_data.mx)
+class(genes_aggr_data.mx)
+genes_aggr_data.mx[1:5,1:5]
+
+dim(genes_aggr_skat_M.df)
+str(genes_aggr_skat_M.df)
+genes_aggr_skat_M.df[1:5,1:5]
+
+dim(genes_aggr_skat_M_exac.df)
+str(genes_aggr_skat_M_exac.df)
+genes_aggr_skat_M_exac.df[1:5,1:5]
+
+dim(selected_genes.df)
+str(selected_genes.df)
+selected_genes.df[1:5,1:5]
+
+dim(genes_aggr_info.df)
+str(genes_aggr_info.df)
+genes_aggr_info.df[1:5,1:5]
+
+dim(genes_aggr_kgen.df)
+str(genes_aggr_kgen.df)
+genes_aggr_kgen.df[1:5,1:5]
+
+dim(genes_aggr_exac.df)
+str(genes_aggr_exac.df)
+genes_aggr_exac.df[1:5,1:5]
+
+dim(kgen.df)
+colnames(kgen.df)
+kgen.df[1:5,1:5]
+
+dim(exac.df)
+colnames(exac.df)
+exac.df[1:5,1:5]
+
+dim(variants.df)
+str(variants.df)
+variants.df[1:5,1:5]
+
+dim(phenotypes.df)
+str(phenotypes.df)
+phenotypes.df[1:5,1:5]
+
+# Check consistency of rownames and colnames
+# Note that, in contrast to the source data, genes_aggr tables have already been syncronised
+sum(colnames(genotypes.mx) != rownames(phenotypes.df))
+sum(colnames(genes_aggr_data.mx) != rownames(phenotypes.df))
+
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_data.mx))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_kgen.df))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_exac.df))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_skat_M.df))
+sum(rownames(genes_aggr_info.df) != rownames(genes_aggr_skat_M_exac.df))
+
+sum(rownames(genotypes.mx) != rownames(genotypes_inv_imp_wt.mx))
+sum(rownames(genotypes.mx) != rownames(kgen.df))
+sum(rownames(genotypes.mx) != rownames(exac.df))
+sum(rownames(genotypes.mx) != rownames(variants.df))
+
+```
+
+# save_data
+
+```{r save_data}
+
+# Save data
+save.image(paste(base_folder, "results", "r10c_SKAT_M_and_crude_trends.RData", sep="/"))
+
+```
+
+# final_section
+
+```{r final_section}
+
+ls()
+sessionInfo()
+Sys.time()
+
+```

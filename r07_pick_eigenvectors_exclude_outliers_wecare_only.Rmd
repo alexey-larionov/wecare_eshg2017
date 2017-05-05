@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 16Feb2017  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -34,12 +34,10 @@ of them:
 Sys.time()
 
 # Folders
+library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
-setwd(base_folder)
-scripts_folder <- "scripts"
-source_data_folder <- "source_data"
-interim_data_folder <- "interim_data"
-results_folder <- "results"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
 
 ```
 
@@ -47,7 +45,8 @@ results_folder <- "results"
 
 ```{r read_wecare_only_eigenvectors}
 
-load(paste(interim_data_folder, "r05_calculate_egenvectors_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r05_calculate_egenvectors_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 ```
 
@@ -117,7 +116,7 @@ Could be done easier with dplyr::join
 eig_outliers=c("P6_D05", "P5_E09")
 
 # Read previous phenotype file (w/o new outliers and eigenvectors)
-wecare_wes_phenotypes.df <- read.table(paste(interim_data_folder, "wecare_phenotypes_interim.txt", sep="/"), 
+wecare_wes_phenotypes.df <- read.table(paste(base_folder, "results", "r03_wecare_phenotypes_interim.txt", sep="/"), 
                             header = TRUE, quote="", sep="\t")
 
 wecare_wes_phenotypes.df[1:5,1:5] # already has rownames
@@ -147,7 +146,7 @@ wecare_wes_phenotypes.df$filter <- as.character(as.vector(wecare_wes_phenotypes.
 "eigenvectors_outlier" -> wecare_wes_phenotypes.df[eig_outliers,"filter"]
 
 # Write down the updated phenotype file
-write.table(wecare_wes_phenotypes.df, file=paste(results_folder, "r07_wecare_phenotypes.txt", sep="/"), quote=FALSE, sep="\t")
+write.table(wecare_wes_phenotypes.df, file=paste(base_folder, "results", "r07_wecare_phenotypes.txt", sep="/"), quote=FALSE, sep="\t")
 
 # Clean-up
 rm(eig_outliers, id, cols_2add, eigs_2add.mx, wecare_wes_phenotypes.df, overlapped_cases)
@@ -461,7 +460,7 @@ rm(wecare.eigen) # its out of sink with data, after removal of outliers
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r07_pick_egenvectors_exclude_outliers_wecare_only.RData", sep="/"))
+save.image(paste(base_folder, "results", "r07_pick_egenvectors_exclude_outliers_wecare_only.RData", sep="/"))
 
 ```
 

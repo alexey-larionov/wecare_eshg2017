@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 2016  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -36,16 +36,11 @@ Output data: 343,824 vars x 512 cases
 # Time stamp
 Sys.time()
 
-
-# Folders
+# Base folder
 library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 opts_knit$set(root.dir = base_folder)
-
-scripts_folder <- paste(base_folder, "scripts", sep="/")
-source_data_folder <- paste(base_folder, "source_data", sep="/")
-interim_data_folder <- paste(base_folder, "interim_data", sep="/")
-results_folder <- paste(base_folder, "results", sep="/")
+#setwd(base_folder)
 
 ```
 
@@ -56,7 +51,7 @@ Done only once - on Darwin cluster.  Hence FALSE in copying.
 ```{r copy_source_ngs_data}
 
 src_folder <- "/scratch/medgen/users/alexey/wecare_6_jan2017/wecare_nfe_nov2016_vqsr_shf_sma_ann_txt"
-tgt_folder <- source_data_folder
+tgt_folder <- paste(base_folder, "source_data", sep="/")
 
 prefix="wecare_nfe_nov2016_vqsr_shf_sma_ann"
 
@@ -105,7 +100,7 @@ Files with phenotypes updates (Dec2016) and cases with BRCA1, BRCA2 and PALB2 (D
 ```{r copy_source_phenotype_data}
 
 src_folder <- "/scratch/medgen/users/alexey/wecare_stat_2_aug2016/source_data"
-tgt_folder <- source_data_folder
+tgt_folder <- paste(base_folder, "source_data", sep="/")
 
 covar_file <- "covar.txt"
 samples_file <- "samples_ids.txt"
@@ -133,49 +128,49 @@ rm(src_folder, tgt_folder)
 ```{r read_data}
 
 gt.df <- read.table(
-  paste(source_data_folder, gt_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), gt_file, sep="/"), 
   header=TRUE, row.names=1, sep="\t", quote="")
 
 gq.df <- read.table(
-  paste(source_data_folder, gq_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), gq_file, sep="/"), 
   header=TRUE, row.names=1, sep="\t", quote="")
 
 dp.df <- read.table(
-  paste(source_data_folder, dp_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), dp_file, sep="/"), 
   header=TRUE, row.names=1, sep="\t", quote="")
 
 covar.df <- read.table(
-  paste(source_data_folder, covar_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), covar_file, sep="/"), 
   sep="\t", header=TRUE, quote="")
 
 samples.df <- read.table(
-  paste(source_data_folder, samples_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), samples_file, sep="/"), 
   sep="\t", header=TRUE, quote="")
 
 demographics.df <- read.table(
-  paste(source_data_folder, demographics_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), demographics_file, sep="/"), 
   sep="\t", header=TRUE, quote="")
 
 vv.df <- read.table(
-  paste(source_data_folder, vv_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), vv_file, sep="/"), 
   header=TRUE, sep="\t", quote="")
 
 kgen.df <- read.table(
-  paste(source_data_folder, kgen_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), kgen_file, sep="/"), 
   header=TRUE, sep="\t", quote="")
 
 exac.df <- read.table(
-  paste(source_data_folder, exac_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), exac_file, sep="/"), 
   header=TRUE, sep="\t", quote="")
 
 phenotypes_update_file <- "phenotypes_update_06Dec2016.txt"
 phenotypes_update.df <- read.table(
-  paste(source_data_folder, phenotypes_update_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), phenotypes_update_file, sep="/"), 
   header=TRUE, sep="\t", quote="")
 
 BRCA1_BRCA2_PALB2_cases_file <- "cases_with_BRCA1_BRCA2_PALB2_pathogenic_variants.txt"
 BRCA1_BRCA2_PALB2_cases.df <- read.table(
-  paste(source_data_folder, BRCA1_BRCA2_PALB2_cases_file, sep="/"), 
+  paste(paste(base_folder, "source_data", sep="/"), BRCA1_BRCA2_PALB2_cases_file, sep="/"), 
   header=TRUE, sep="\t", quote="")
 
 # Update rownames, when necessary
@@ -190,7 +185,7 @@ colnames(gq.df) <- sub(".GQ", "", colnames(gq.df))
 colnames(dp.df) <- sub(".DP", "", colnames(dp.df))
 
 # Clean-up
-rm(source_data_folder, prefix, covar_file, demographics_file, samples_file, vv_file, gt_file, gq_file, dp_file, kgen_file, exac_file, phenotypes_update_file, BRCA1_BRCA2_PALB2_cases_file)
+rm(prefix, covar_file, demographics_file, samples_file, vv_file, gt_file, gq_file, dp_file, kgen_file, exac_file, phenotypes_update_file, BRCA1_BRCA2_PALB2_cases_file)
 
 ```
 
@@ -405,7 +400,8 @@ sum(colnames(gt.mx) != colnames(dp.mx))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r01_read_and_clean_data_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
+save.image(paste(base_folder, "results", "r01_read_and_clean_data_wecare_only.RData", sep="/"))
 
 ```
 

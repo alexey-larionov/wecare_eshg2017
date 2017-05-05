@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 2016  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -34,16 +34,17 @@ Output data: 40,924 vars x 530 cases (480 wecare + 50 kgen)
 Sys.time()
 
 # Folders
+library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
-setwd(base_folder)
-scripts_folder <- "scripts"
-source_data_folder <- "source_data"
-interim_data_folder <- "interim_data"
-results_folder <- "results"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
 
 # Required libraries
 library(ggplot2)
 library(plotly)
+
+# Accessory function
+source(paste(base_folder, "scripts", "f01_calculate_eigenvectors.R", sep="/"))
 
 ```
 
@@ -51,7 +52,8 @@ library(plotly)
 
 ```{r load_data}
 
-load(paste(interim_data_folder, "r06a_add_kgen50_to_wecare.RData", sep="/"))
+load(paste(base_folder, "results", "r06a_add_kgen50_to_wecare.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 ```
 
@@ -210,8 +212,7 @@ dim(common_overlap_genotypes.mx)
 common_overlap_genotypes.mx[1:5,1:5]
 
 # --- Calculate eigenvectors --- #
-
-source("f01_calculate_eigenvectors.R")
+# requires source("f01_calculate_eigenvectors.R")
 wecare_kgen50.eigen <- normalise_and_calculate_eigenvectors.udf(common_overlap_genotypes.mx)
 
 # Clean-up
@@ -391,7 +392,7 @@ sum(colnames(wecare_kgen50_gt.mx) != rownames(wecare_kgen50_groups.df))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r06b_calculate_egenvectors_kgen50_wecare.RData", sep="/"))
+save.image(paste(base_folder, "results", "r06b_calculate_egenvectors_kgen50_wecare.RData", sep="/"))
 
 ```
 

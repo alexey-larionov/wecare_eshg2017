@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 31Jan2017  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -34,12 +34,10 @@ Output kgen50-wecare data: 82,799 vars x 530 cases (480 wecare + 50 kgen)
 Sys.time()
 
 # Folders
+library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
-setwd(base_folder)
-scripts_folder <- "scripts"
-source_data_folder <- "source_data"
-interim_data_folder <- "interim_data"
-results_folder <- "results"
+opts_knit$set(root.dir = base_folder)
+#setwd(base_folder)
 
 ```
 
@@ -61,20 +59,21 @@ and 4 additional columns: Chrom, Pos, kgen-id, wecare-nfe-id
 ```{r read_data}
 
 # load wecare-only data
-load(paste(interim_data_folder, "r05_calculate_egenvectors_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r05_calculate_egenvectors_wecare_only.RData", sep="/"))
+#base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 
 # Load kgen data
 
-kgen50_cases.df <- read.table(paste(source_data_folder, "kgen_selected_50_samples.txt", sep="/"))
+kgen50_cases.df <- read.table(paste(base_folder, "source_data", "kgen_selected_50_samples.txt", sep="/"))
 dim(kgen50_cases.df)
 
 kgen50_vcf.df <- read.table(
-  paste(source_data_folder, "wecare_nfe_kgen50_filt_vcf.txt", sep="/"), 
+  paste(base_folder, "source_data", "wecare_nfe_kgen50_filt_vcf.txt", sep="/"), 
   header=TRUE, sep="\t", quote="")
 dim(kgen50_vcf.df)
 
 kgen50_gt.df <- read.table(
-  paste(source_data_folder, "wecare_nfe_kgen50_filt_gt.txt", sep="/"), 
+  paste(base_folder, "source_data", "wecare_nfe_kgen50_filt_gt.txt", sep="/"), 
   header=TRUE, sep="\t", quote="")
 dim(kgen50_gt.df)
 
@@ -369,7 +368,7 @@ sum(colnames(wecare_kgen50_gt.mx) != rownames(wecare_kgen50_groups.df))
 
 ```{r save_data}
 
-save.image(paste(interim_data_folder, "r06a_add_kgen50_to_wecare.RData", sep="/"))
+save.image(paste(base_folder, "results", "r06a_add_kgen50_to_wecare.RData", sep="/"))
 
 ```
 

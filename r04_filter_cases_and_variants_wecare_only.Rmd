@@ -4,7 +4,7 @@ output: html_document
 ---
 
 started: Alexey Larionov, 01Mar2016  
-last updated: Alexey Larionov, 03May2017
+last updated: Alexey Larionov, 04May2017
 
 # Summary
 
@@ -28,16 +28,10 @@ Output data: 247,059 vars x 480 cases (245 UBC and 235 CBC)
 # Time stamp
 Sys.time()
 
-
 # Folders
 library(knitr)
 base_folder="/analysis/mtgroup_share/users/alexey/wecare_only_stat_05.17"
 opts_knit$set(root.dir = base_folder)
-
-scripts_folder <- paste(base_folder, "scripts", sep="/")
-source_data_folder <- paste(base_folder, "source_data", sep="/")
-interim_data_folder <- paste(base_folder, "interim_data", sep="/")
-results_folder <- paste(base_folder, "results", sep="/")
 
 # Required libraries
 library(ggplot2)
@@ -49,7 +43,7 @@ library(VennDiagram)
 
 ```{r load_data}
 
-load(paste(interim_data_folder, "r03_consolidate_phenotype_data_wecare_only.RData", sep="/"))
+load(paste(base_folder, "results", "r03_consolidate_phenotype_data_wecare_only.RData", sep="/"))
 
 ```
 
@@ -253,12 +247,8 @@ sum(rownames(genotypes.mx) != rownames(exac.df))
 
 ```{r save_data}
 
-# Clean folders names
-rm(scripts_folder, source_data_folder, interim_data_folder, results_folder)
-
 # Save data
-
-save.image(paste(interim_data_folder, "r04_filter_cases_and_variants_wecare_only.RData", sep="/"))
+save.image(paste(base_folder, "results", "r04_filter_cases_and_variants_wecare_only.RData", sep="/"))
 
 ```
 

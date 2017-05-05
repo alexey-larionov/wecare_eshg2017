@@ -362,6 +362,19 @@ rm(skat.df, clogit.df, candidates, skat_01_top, clogit_01_top, skat_05_top, clog
 
 ```
 
+
+```{r}
+candidates <- c("FOXM1", "SLC9A3R1", "ACACA", 
+                "ATM", "CHEK2", "FANCB", 
+                "EPHB2", "TIMELESS", "ERCC6", "REV3L", "PDK4", "HDAC6", 
+                "TLR5", "IGKC", "THBS4", "EID3", "AKAP13", "NRG1", "PLK3", "INCENP", "NF1", "CHRNA9")
+
+x <- genes_aggr_skat.df[candidates, c("num_var","burden_p", "svt_p")]
+y <- genes_aggr_clogit.df[candidates, "p_clogit_lrt", drop=FALSE]
+z <- cbind(x,y)
+
+```
+
 # data_summary
 
 NB: genes_aggr_clogit.df was reduced to sync with genes_aggr_skat.df  
